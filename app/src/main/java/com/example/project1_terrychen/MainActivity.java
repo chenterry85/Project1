@@ -1,26 +1,28 @@
 package com.example.project1_terrychen;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.util.Pair;
-
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
-import android.widget.GridLayout;
 import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.util.Pair;
+import androidx.gridlayout.widget.GridLayout;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
-	private static final int NUMBER_OF_MINES = 4;
 	private static final int GRID_ROWS = 12;
 	private static final int GRID_COLUMNS = 10;
+	private static final int NUMBER_OF_MINES = 4;
 	private static final int CELL_SIZE_IN_DP = 26;
 	private static final int CELL_TEXT_SIZE_IN_SP = 20;
 	private static final int CELL_MARGIN_IN_DP = 2;
@@ -30,19 +32,23 @@ public class MainActivity extends AppCompatActivity {
 	private ArrayList<Pair<Integer, Integer>> cellIndices = new ArrayList<>();
 	private HashSet<TextView> visitedCells = new HashSet<>();
 
-
+	private boolean isPickaxeMode = true;
 	private int elapsedTimeInSeconds = 0;
 	private boolean isGameOngoing = true;
-	private boolean isPickaxeMode = true;
-
+	private boolean hasWon = false;
 
 	@Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
 		startGameTimer();
 		initializeGameGrid();
+		assignMinesAndCalculateValues();
+	}
 
+	private int convertDpToPixels(int dp) {
+		float density = Resources.getSystem().getDisplayMetrics().density;
+		return Math.round(dp * density);
 	}
 
 	private void initializeGameGrid() {
@@ -74,15 +80,58 @@ public class MainActivity extends AppCompatActivity {
 		cellIndices.add(new Pair<>(row, col));
 	}
 
-	private int convertDpToPixels(int dp) {
-		float density = Resources.getSystem().getDisplayMetrics().density;
-		return Math.round(dp * density);
+	private void assignMinesAndCalculateValues() {
+		HashSet<Integer> minePositions = generateRandomMinePositions();
+		HashMap<Integer, Integer> mineSurroundingCounts = calculateMineSurroundingCounts(minePositions);
+
+		for (int i = 0; i < cellTextViews.size(); i++) {
+			if (minePositions.contains(i)) {
+				cellValues.add(-1);
+			} else {
+				cellValues.add(mineSurroundingCounts.getOrDefault(i, 0));
+			}
+		}
+	}
+
+	private HashSet<Integer> generateRandomMinePositions() {
+		HashSet<Integer> minePositions = new HashSet<>();
+		Random random = new Random();
+		while (minePositions.size() < NUMBER_OF_MINES) {
+			minePositions.add(random.nextInt(GRID_ROWS * GRID_COLUMNS));
+		}
+		return minePositions;
+	}
+
+	private HashMap<Integer, Integer> calculateMineSurroundingCounts(HashSet<Integer> minePositions) {
+		HashMap<Integer, Integer> mineSurroundingCounts = new HashMap<>();
+		for (int minePosition : minePositions) {
+			Pair<Integer, Integer> index = cellIndices.get(minePosition);
+			int row = index.first;
+			int col = index.second;
+
+			for (int i = -1; i <= 1; i++) {
+				for (int j = -1; j <= 1; j++) {
+					if (i == 0 && j == 0) continue;
+
+					Pair<Integer, Integer> neighbor = new Pair<>(row + i, col + j);
+					if (cellIndices.contains(neighbor)) {
+						int neighborIndex = cellIndices.indexOf(neighbor);
+						mineSurroundingCounts.put(neighborIndex, mineSurroundingCounts.getOrDefault(neighborIndex, 0) + 1);
+					}
+				}
+			}
+		}
+		return mineSurroundingCounts;
 	}
 
 	public void handlePickaxeModeToggle(View view) {
 		isPickaxeMode = !isPickaxeMode;
 		TextView pickButton = findViewById(R.id.pickButton);
 		pickButton.setText(getString(isPickaxeMode ? R.string.pick : R.string.flag));
+	}
+
+	private int findCellIndex(View view) {
+		return cellTextViews.indexOf(view);
 	}
 
 	public void handleCellClick(View view) {
@@ -100,6 +149,13 @@ public class MainActivity extends AppCompatActivity {
 		}
 	}
 
+	private void navigateToResultsActivity() {
+		Intent intent = new Intent(this, ResultsActivity.class);
+		intent.putExtra("won", hasWon);
+		intent.putExtra("seconds", elapsedTimeInSeconds);
+		startActivity(intent);
+	}
+
 	private void handleFlagModeClick(TextView cell) {
 		TextView flagCounter = findViewById(R.id.flagsLeft);
 		int flagCount = Integer.parseInt(flagCounter.getText().toString());
@@ -110,6 +166,8 @@ public class MainActivity extends AppCompatActivity {
 		} else {
 			cell.setText(getString(R.string.flag));
 			flagCounter.setText(String.valueOf(flagCount - 1));
+
+			checkGameEndCondition();
 		}
 	}
 
@@ -119,18 +177,21 @@ public class MainActivity extends AppCompatActivity {
 		}
 
 		if (cellValues.get(cellIndex) == -1) {
+			Log.i("MyApp", "This is an info log message");
+
 			revealAllMines();
 			isGameOngoing = false;
+
+			Log.i("MyApp", "This is an info log gggggmessage");
+
+			navigateToResultsActivity();
 		} else if (cellValues.get(cellIndex) > 0) {
 			revealCell(cell, cellIndex);
+			checkGameEndCondition();
 		} else {
 			performDFS(cell);
 			checkGameEndCondition();
 		}
-	}
-
-	private int findCellIndex(View view) {
-		return cellTextViews.indexOf(view);
 	}
 
 	private void revealAllMines() {
@@ -149,6 +210,7 @@ public class MainActivity extends AppCompatActivity {
 		cell.setBackgroundColor(Color.GRAY);
 		visitedCells.add(cell);
 	}
+
 
 	private void performDFS(TextView startCell) {
 		ArrayList<TextView> queue = new ArrayList<>();
@@ -191,16 +253,12 @@ public class MainActivity extends AppCompatActivity {
 		return neighbors;
 	}
 
-	private void navigateToResultsActivity() {
-
-
-
-	}
-
 	private void checkGameEndCondition() {
 		if (visitedCells.size() == (GRID_ROWS * GRID_COLUMNS - NUMBER_OF_MINES)) {
 			hasWon = true;
 			isGameOngoing = false;
+
+			navigateToResultsActivity();
 		}
 	}
 
@@ -218,4 +276,5 @@ public class MainActivity extends AppCompatActivity {
 			}
 		});
 	}
+
 }

@@ -6,12 +6,12 @@
 	android:layout_height="match_parent"
 	tools:context=".MainActivity">
 
-	<GridLayout
+	<androidx.gridlayout.widget.GridLayout
 		android:id="@+id/gridLayout"
 		android:layout_width="300dp"
 		android:layout_height="400dp"
-		android:columnCount="10"
-		android:rowCount="12"
+		app:columnCount="10"
+		app:rowCount="12"
 		app:layout_constraintBottom_toBottomOf="parent"
 		app:layout_constraintEnd_toEndOf="parent"
 		app:layout_constraintStart_toStartOf="parent"
