@@ -18,6 +18,7 @@ import java.util.HashSet;
 
 public class MainActivity extends AppCompatActivity {
 
+	private static final int NUMBER_OF_MINES = 4;
 	private static final int GRID_ROWS = 12;
 	private static final int GRID_COLUMNS = 10;
 	private static final int CELL_SIZE_IN_DP = 26;
@@ -109,9 +110,6 @@ public class MainActivity extends AppCompatActivity {
 		} else {
 			cell.setText(getString(R.string.flag));
 			flagCounter.setText(String.valueOf(flagCount - 1));
-
-//			if(flagCount-1 == 0){
-//			}
 		}
 	}
 
@@ -125,6 +123,9 @@ public class MainActivity extends AppCompatActivity {
 			isGameOngoing = false;
 		} else if (cellValues.get(cellIndex) > 0) {
 			revealCell(cell, cellIndex);
+		} else {
+			performDFS(cell);
+			checkGameEndCondition();
 		}
 	}
 
@@ -149,10 +150,58 @@ public class MainActivity extends AppCompatActivity {
 		visitedCells.add(cell);
 	}
 
+	private void performDFS(TextView startCell) {
+		ArrayList<TextView> queue = new ArrayList<>();
+		queue.add(startCell);
+		visitedCells.add(startCell);
+
+		while (!queue.isEmpty()) {
+			TextView currentCell = queue.remove(0);
+			int currentCellIndex = findCellIndex(currentCell);
+
+			if (cellValues.get(currentCellIndex) > 0) {
+				revealCell(currentCell, currentCellIndex);
+				continue;
+			}
+
+			revealCell(currentCell, currentCellIndex);
+			queue.addAll(getValidUnvisitedNeighbors(currentCell));
+		}
+	}
+
+	private ArrayList<TextView> getValidUnvisitedNeighbors(TextView cell) {
+		ArrayList<TextView> neighbors = new ArrayList<>();
+		Pair<Integer, Integer> cellPosition = cellIndices.get(findCellIndex(cell));
+
+		int[][] directions = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
+		for (int[] direction : directions) {
+			int newRow = cellPosition.first + direction[0];
+			int newCol = cellPosition.second + direction[1];
+			Pair<Integer, Integer> neighborPosition = new Pair<>(newRow, newCol);
+
+			if (cellIndices.contains(neighborPosition)) {
+				TextView neighborCell = cellTextViews.get(cellIndices.indexOf(neighborPosition));
+				if (!visitedCells.contains(neighborCell) && !neighborCell.getText().equals(getString(R.string.flag))) {
+					neighbors.add(neighborCell);
+					visitedCells.add(neighborCell);
+				}
+			}
+		}
+
+		return neighbors;
+	}
+
 	private void navigateToResultsActivity() {
 
 
 
+	}
+
+	private void checkGameEndCondition() {
+		if (visitedCells.size() == (GRID_ROWS * GRID_COLUMNS - NUMBER_OF_MINES)) {
+			hasWon = true;
+			isGameOngoing = false;
+		}
 	}
 
 	private void startGameTimer() {
