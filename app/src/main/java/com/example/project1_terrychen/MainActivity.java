@@ -3,6 +3,7 @@ package com.example.project1_terrychen;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.util.Pair;
 
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -12,6 +13,7 @@ import android.widget.GridLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -23,7 +25,9 @@ public class MainActivity extends AppCompatActivity {
 	private static final int CELL_MARGIN_IN_DP = 2;
 
 	private ArrayList<TextView> cellTextViews = new ArrayList<>();
+	private ArrayList<Integer> cellValues = new ArrayList<>();
 	private ArrayList<Pair<Integer, Integer>> cellIndices = new ArrayList<>();
+	private HashSet<TextView> visitedCells = new HashSet<>();
 
 
 	private int elapsedTimeInSeconds = 0;
@@ -57,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
 		cellTextView.setTextAlignment(TextView.TEXT_ALIGNMENT_CENTER);
 		cellTextView.setTextColor(Color.WHITE);
 		cellTextView.setBackgroundColor(Color.GREEN);
+		cellTextView.setOnClickListener(this::handleCellClick);
 
 		GridLayout.LayoutParams layoutParams = new GridLayout.LayoutParams();
 		layoutParams.setMargins(convertDpToPixels(CELL_MARGIN_IN_DP), convertDpToPixels(CELL_MARGIN_IN_DP), convertDpToPixels(CELL_MARGIN_IN_DP), convertDpToPixels(CELL_MARGIN_IN_DP));
@@ -77,6 +82,77 @@ public class MainActivity extends AppCompatActivity {
 		isPickaxeMode = !isPickaxeMode;
 		TextView pickButton = findViewById(R.id.pickButton);
 		pickButton.setText(getString(isPickaxeMode ? R.string.pick : R.string.flag));
+	}
+
+	public void handleCellClick(View view) {
+		TextView clickedCell = (TextView) view;
+		int cellIndex = findCellIndex(view);
+
+		if (!isGameOngoing) {
+			navigateToResultsActivity();
+		} else if (visitedCells.contains(view)) {
+			return;
+		} else if (!isPickaxeMode) {
+			handleFlagModeClick(clickedCell);
+		} else {
+			handlePickaxeModeClick(clickedCell, cellIndex);
+		}
+	}
+
+	private void handleFlagModeClick(TextView cell) {
+		TextView flagCounter = findViewById(R.id.flagsLeft);
+		int flagCount = Integer.parseInt(flagCounter.getText().toString());
+
+		if (cell.getText().equals(getString(R.string.flag))) {
+			cell.setText("");
+			flagCounter.setText(String.valueOf(flagCount + 1));
+		} else {
+			cell.setText(getString(R.string.flag));
+			flagCounter.setText(String.valueOf(flagCount - 1));
+
+//			if(flagCount-1 == 0){
+//			}
+		}
+	}
+
+	private void handlePickaxeModeClick(TextView cell, int cellIndex) {
+		if (cell.getText().equals(getString(R.string.flag)) || visitedCells.contains(cell)) {
+			return;
+		}
+
+		if (cellValues.get(cellIndex) == -1) {
+			revealAllMines();
+			isGameOngoing = false;
+		} else if (cellValues.get(cellIndex) > 0) {
+			revealCell(cell, cellIndex);
+		}
+	}
+
+	private int findCellIndex(View view) {
+		return cellTextViews.indexOf(view);
+	}
+
+	private void revealAllMines() {
+		for (int i = 0; i < cellValues.size(); i++) {
+			if (cellValues.get(i) == -1) {
+				TextView mineCell = cellTextViews.get(i);
+				mineCell.setText(getString(R.string.mine));
+				mineCell.setBackgroundColor(Color.GRAY);
+			}
+		}
+	}
+
+	private void revealCell(TextView cell, int cellIndex) {
+		int cellValue = cellValues.get(cellIndex);
+		cell.setText(cellValue > 0 ? String.valueOf(cellValue) : "");
+		cell.setBackgroundColor(Color.GRAY);
+		visitedCells.add(cell);
+	}
+
+	private void navigateToResultsActivity() {
+
+
+
 	}
 
 	private void startGameTimer() {
